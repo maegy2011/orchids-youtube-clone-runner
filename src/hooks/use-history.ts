@@ -3,9 +3,19 @@
 import { useState, useEffect } from "react";
 import { useUser } from "./use-user";
 
+interface HistoryItem {
+  id: number;
+  userId: string;
+  videoId: string;
+  videoTitle: string;
+  videoThumbnail: string | null;
+  watchProgress: number;
+  watchedAt: Date;
+}
+
 export function useHistory() {
   const { userId } = useUser();
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchHistory = async () => {
@@ -31,5 +41,10 @@ export function useHistory() {
     return history.some((h) => h.videoId === videoId);
   };
 
-  return { history, loading, isWatched, refresh: fetchHistory };
+  const getWatchProgress = (videoId: string): number => {
+    const item = history.find((h) => h.videoId === videoId);
+    return item?.watchProgress ?? 0;
+  };
+
+  return { history, loading, isWatched, getWatchProgress, refresh: fetchHistory };
 }

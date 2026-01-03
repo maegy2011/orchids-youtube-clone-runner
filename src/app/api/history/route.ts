@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, videoId, videoTitle, videoThumbnail } = body;
+    const { userId, videoId, videoTitle, videoThumbnail, watchProgress } = body;
     
     if (!userId || !videoId || !videoTitle) {
       return NextResponse.json({ error: "الحقول المطلوبة ناقصة" }, { status: 400 });
@@ -57,7 +57,10 @@ export async function POST(req: NextRequest) {
 
     if (existing) {
       await db.update(watchHistory)
-        .set({ watchedAt: new Date() })
+        .set({ 
+          watchedAt: new Date(),
+          watchProgress: watchProgress ?? existing.watchProgress 
+        })
         .where(eq(watchHistory.id, existing.id));
       return NextResponse.json({ success: true, updated: true });
     }
@@ -67,6 +70,7 @@ export async function POST(req: NextRequest) {
       videoId,
       videoTitle,
       videoThumbnail,
+      watchProgress: watchProgress ?? 0,
       watchedAt: new Date(),
     });
 

@@ -21,5 +21,6 @@ export const watchHistory = sqliteTable("watch_history", {
   videoId: text("video_id").notNull(),
   videoTitle: text("video_title").notNull(),
   videoThumbnail: text("video_thumbnail"),
+  watchProgress: integer("watch_progress").default(0),
   watchedAt: integer("watched_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
 });

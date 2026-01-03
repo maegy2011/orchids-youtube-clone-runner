@@ -138,6 +138,44 @@ export default function WatchPage() {
     }
   }, [userId, video, videoId]);
 
+  useEffect(() => {
+    const saveProgress = async () => {
+      if (!userId || !video || !currentTime) return;
+      
+      const durationMatch = video.duration?.match(/(\d+):(\d+):?(\d+)?/);
+      let totalSeconds = 0;
+      if (durationMatch) {
+        if (durationMatch[3]) {
+          totalSeconds = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseInt(durationMatch[3]);
+        } else {
+          totalSeconds = parseInt(durationMatch[1]) * 60 + parseInt(durationMatch[2]);
+        }
+      }
+      
+      if (totalSeconds > 0) {
+        const progress = Math.round((currentTime / totalSeconds) * 100);
+        try {
+          await fetch('/api/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              videoId: videoId,
+              videoTitle: video.title,
+              videoThumbnail: video.thumbnail,
+              watchProgress: progress,
+            }),
+          });
+        } catch (err) {
+          console.error('Error saving progress:', err);
+        }
+      }
+    };
+
+    const interval = setInterval(saveProgress, 10000);
+    return () => clearInterval(interval);
+  }, [userId, video, videoId, currentTime]);
+
   const toggleSubscription = async () => {
     if (!userId || !video || subscribing) return;
     setSubscribing(true);
@@ -208,6 +246,36 @@ export default function WatchPage() {
       setPlayerReady(true);
     }
   }, [backgroundPlayEnabled, video]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== 'https://www.youtube-nocookie.com') return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.event === 'infoDelivery' && data.info?.currentTime !== undefined) {
+          setCurrentTime(data.info.currentTime);
+        }
+      } catch {
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  useEffect(() => {
+    if (iframeRef.current && playerReady) {
+      const sendListenCommand = () => {
+        iframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'listening' }),
+          'https://www.youtube-nocookie.com'
+        );
+      };
+      
+      const interval = setInterval(sendListenCommand, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [playerReady]);
 
   const startCapture = () => {
     const time = currentTime;
