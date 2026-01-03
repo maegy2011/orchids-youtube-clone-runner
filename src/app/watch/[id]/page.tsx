@@ -1,3 +1,4 @@
+/* Video Notes Enhancement */
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -64,10 +65,10 @@ export default function WatchPage() {
   const [showDescription, setShowDescription] = useState(false);
   
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [playerReady, setPlayerReady] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
   const playerRef = useRef<any>(null);
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
   
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteContent, setNoteContent] = useState('');
@@ -78,6 +79,7 @@ export default function WatchPage() {
   const [noteSearch, setNoteSearch] = useState('');
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureStartTime, setCaptureStartTime] = useState<number | null>(null);
+  const [quickNotes, setQuickNotes] = useState<{id: string; startTime: number; endTime: number; createdAt: number}[]>([]);
   
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [backgroundPlayEnabled, setBackgroundPlayEnabled] = useState(false);
@@ -212,7 +214,7 @@ export default function WatchPage() {
   }, [backgroundPlayEnabled, video]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || backgroundPlayEnabled) return;
+    if (typeof window === 'undefined' || backgroundPlayEnabled || !video) return;
 
     const loadYouTubeAPI = () => {
       if (!(window as any).YT) {
@@ -226,32 +228,36 @@ export default function WatchPage() {
     const initPlayer = () => {
       if (!iframeRef.current || playerRef.current) return;
       
-      playerRef.current = new (window as any).YT.Player(iframeRef.current, {
-        events: {
-          onReady: (event: any) => {
-            setPlayerReady(true);
-            if (timeUpdateIntervalRef.current) {
-              clearInterval(timeUpdateIntervalRef.current);
-            }
-            timeUpdateIntervalRef.current = setInterval(() => {
-              if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+      try {
+        playerRef.current = new (window as any).YT.Player(iframeRef.current, {
+          events: {
+            onReady: () => {
+              setPlayerReady(true);
+              if (timeUpdateIntervalRef.current) {
+                clearInterval(timeUpdateIntervalRef.current);
+              }
+              timeUpdateIntervalRef.current = setInterval(() => {
+                if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+                  const time = playerRef.current.getCurrentTime();
+                  if (typeof time === 'number' && !isNaN(time)) {
+                    setCurrentTime(time);
+                  }
+                }
+              }, 500);
+            },
+            onStateChange: (event: any) => {
+              if (event.data === 1 && playerRef.current) {
                 const time = playerRef.current.getCurrentTime();
                 if (typeof time === 'number' && !isNaN(time)) {
                   setCurrentTime(time);
                 }
               }
-            }, 500);
-          },
-          onStateChange: (event: any) => {
-            if (event.data === 1 && playerRef.current) {
-              const time = playerRef.current.getCurrentTime();
-              if (typeof time === 'number' && !isNaN(time)) {
-                setCurrentTime(time);
-              }
             }
           }
-        }
-      });
+        });
+      } catch (e) {
+        console.log('YouTube player init error:', e);
+      }
     };
 
     loadYouTubeAPI();
@@ -271,7 +277,7 @@ export default function WatchPage() {
     };
   }, [video, backgroundPlayEnabled]);
 
-  const startCapture = () => {
+  const getCurrentPlayerTime = () => {
     let time = currentTime;
     if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
       const playerTime = playerRef.current.getCurrentTime();
@@ -280,25 +286,54 @@ export default function WatchPage() {
         setCurrentTime(time);
       }
     }
+    return time;
+  };
+
+  const quickCapture = () => {
+    const time = getCurrentPlayerTime();
+    const newQuickNote = {
+      id: `quick-${Date.now()}`,
+      startTime: time,
+      endTime: time,
+      createdAt: Date.now(),
+    };
+    setQuickNotes(prev => [...prev, newQuickNote]);
+  };
+
+  const startCapture = () => {
+    const time = getCurrentPlayerTime();
     setCaptureStartTime(time);
     setNoteStartTime(formatTime(time));
     setNoteEndTime(formatTime(time));
     setIsCapturing(true);
-    setShowNoteForm(true);
-    setNoteContent('');
   };
 
   const stopCapture = () => {
-    let time = currentTime;
-    if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-      const playerTime = playerRef.current.getCurrentTime();
-      if (typeof playerTime === 'number' && !isNaN(playerTime)) {
-        time = playerTime;
-        setCurrentTime(time);
-      }
-    }
+    const time = getCurrentPlayerTime();
+    const startTime = captureStartTime ?? 0;
+    const newQuickNote = {
+      id: `quick-${Date.now()}`,
+      startTime: startTime,
+      endTime: time,
+      createdAt: Date.now(),
+    };
+    setQuickNotes(prev => [...prev, newQuickNote]);
     setNoteEndTime(formatTime(time));
     setIsCapturing(false);
+    setCaptureStartTime(null);
+  };
+
+  const editQuickNote = (quickNote: {id: string; startTime: number; endTime: number}) => {
+    setNoteStartTime(formatTime(quickNote.startTime));
+    setNoteEndTime(formatTime(quickNote.endTime));
+    setNoteContent('');
+    setEditingNote(null);
+    setShowNoteForm(true);
+    setQuickNotes(prev => prev.filter(n => n.id !== quickNote.id));
+  };
+
+  const deleteQuickNote = (id: string) => {
+    setQuickNotes(prev => prev.filter(n => n.id !== id));
   };
 
   const handleAddNote = () => {
@@ -356,19 +391,11 @@ export default function WatchPage() {
   };
 
   const captureCurrentTime = (type: 'start' | 'end') => {
-    let time = currentTime;
-    if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-      const playerTime = playerRef.current.getCurrentTime();
-      if (typeof playerTime === 'number' && !isNaN(playerTime)) {
-        time = playerTime;
-        setCurrentTime(time);
-      }
-    }
-    const formattedTime = formatTime(time);
+    const time = formatTime(currentTime);
     if (type === 'start') {
-      setNoteStartTime(formattedTime);
+      setNoteStartTime(time);
     } else {
-      setNoteEndTime(formattedTime);
+      setNoteEndTime(time);
     }
   };
 
@@ -478,9 +505,8 @@ export default function WatchPage() {
             {!backgroundPlayEnabled ? (
               <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden mb-4">
                 <iframe
-                  id={`youtube-player-${videoId}`}
                   ref={iframeRef}
-                  src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&hl=ar&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}${startTime ? `&start=${startTime}` : ''}`}
+                  src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&hl=ar&enablejsapi=1${startTime ? `&start=${startTime}` : ''}`}
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
@@ -599,66 +625,82 @@ export default function WatchPage() {
             </div>
           </div>
 
-          <div className="w-full lg:w-[380px] xl:w-[400px] flex-shrink-0">
+            <div className="w-full lg:w-[380px] xl:w-[400px] flex-shrink-0">
               <div className="bg-white border border-[#e5e5e5] rounded-xl p-3 sm:p-4 lg:sticky lg:top-[72px]">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-3">
                   <h2 className="text-base sm:text-lg font-bold text-[#0f0f0f]">ملاحظات الفيديو</h2>
-                  <div className="flex items-center gap-2">
-                    {!isCapturing ? (
-                      <button
-                        onClick={startCapture}
-                        className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-green-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors"
-                        title="بدء التقاط ملاحظة"
-                      >
-                        <Circle size={14} className="sm:w-4 sm:h-4 fill-current" />
-                        <span className="hidden xs:inline">بدء</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={stopCapture}
-                        className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-red-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-red-700 transition-colors animate-pulse"
-                        title="إيقاف التقاط ملاحظة"
-                      >
-                        <Square size={14} className="sm:w-4 sm:h-4 fill-current" />
-                        <span className="hidden xs:inline">إيقاف</span>
-                      </button>
-                    )}
+                  <div className="flex items-center gap-1">
                     <button
-                      onClick={() => {
-                        setShowNoteForm(!showNoteForm);
-                        setEditingNote(null);
-                        setNoteContent('');
-                        setNoteStartTime(formatTime(currentTime));
-                        setNoteEndTime(formatTime(currentTime));
-                      }}
-                      className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-red-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-red-700 transition-colors"
+                      onClick={quickCapture}
+                      className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition-colors"
+                      title="التقاط سريع - اضغط لحفظ الوقت الحالي"
                     >
-                      <Plus size={14} className="sm:w-4 sm:h-4" />
-                      <span className="hidden xs:inline">ملاحظة</span>
+                      <Plus size={16} />
+                      <Clock size={14} />
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 mb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Clock size={18} className="text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">الوقت الحالي:</span>
+                      <Clock size={16} className="text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">الوقت:</span>
                     </div>
                     <span className="text-lg font-bold text-blue-600 font-mono">{formatTime(currentTime)}</span>
                   </div>
-                  {isCapturing && (
-                    <div className="mt-2 pt-2 border-t border-blue-200">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-blue-700">جاري التقاط من: <span className="font-bold">{noteStartTime}</span></span>
-                        <span className="flex items-center gap-1 text-red-600">
-                          <Circle size={8} className="fill-current animate-pulse" />
-                          تسجيل...
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                  
+                  <div className="flex items-center gap-2 mt-2">
+                    {!isCapturing ? (
+                      <button
+                        onClick={startCapture}
+                        className="flex-1 flex items-center justify-center gap-1 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors"
+                      >
+                        <Circle size={12} className="fill-current" />
+                        بدء مقطع
+                      </button>
+                    ) : (
+                      <button
+                        onClick={stopCapture}
+                        className="flex-1 flex items-center justify-center gap-1 py-2 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors animate-pulse"
+                      >
+                        <Square size={12} className="fill-current" />
+                        إيقاف ({formatTime(captureStartTime ?? 0)})
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {quickNotes.length > 0 && (
+                  <div className="mb-3">
+                    <h3 className="text-xs font-medium text-[#606060] mb-2">ملاحظات سريعة (بدون محتوى)</h3>
+                    <div className="space-y-2 max-h-[120px] overflow-y-auto">
+                      {quickNotes.map((qn) => (
+                        <div key={qn.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-2">
+                          <span className="text-sm font-mono text-amber-700">
+                            {formatTime(qn.startTime)} {qn.endTime !== qn.startTime && `- ${formatTime(qn.endTime)}`}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => editQuickNote(qn)}
+                              className="p-1.5 text-amber-600 hover:bg-amber-100 rounded-full transition-colors"
+                              title="إضافة محتوى"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => deleteQuickNote(qn.id)}
+                              className="p-1.5 text-red-500 hover:bg-red-100 rounded-full transition-colors"
+                              title="حذف"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
               <div className="relative mb-4">
                 <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#606060]" />
