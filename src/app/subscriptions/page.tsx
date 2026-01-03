@@ -113,7 +113,7 @@ export default function SubscriptionsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {subscriptions.map((sub) => (
                 <div key={sub.channelId} className="flex items-center justify-between p-4 border rounded-xl hover:bg-[#f9f9f9] transition-colors group">
-                  <div className="flex items-center gap-4">
+                  <Link href={`/channel/${sub.channelId}`} className="flex items-center gap-4 flex-1">
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-muted">
                       {sub.channelThumbnail ? (
                         <img src={sub.channelThumbnail} alt={sub.channelTitle} className="w-full h-full object-cover" />
@@ -124,12 +124,12 @@ export default function SubscriptionsPage() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-[#0f0f0f]">{sub.channelTitle}</h3>
+                      <h3 className="font-bold text-[#0f0f0f] group-hover:text-red-600 transition-colors">{sub.channelTitle}</h3>
                       <p className="text-sm text-[#606060]">قناة يوتيوب</p>
                     </div>
-                  </div>
+                  </Link>
                   <button 
-                    onClick={() => unsubscribe(sub.channelId)}
+                    onClick={(e) => { e.preventDefault(); unsubscribe(sub.channelId); }}
                     className="p-2 text-[#606060] hover:text-red-600 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
                     title="إلغاء الاشتراك"
                   >
