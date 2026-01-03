@@ -100,18 +100,20 @@ export async function POST(request: NextRequest) {
       ? `${selectedFormat.audioBitrate || 128}kbps`
       : selectedFormat.qualityLabel || `${quality}p`;
 
-    return NextResponse.json({ 
-      url: selectedFormat.url,
-      videoId,
-      quality: actualQuality,
-      type,
-      container: selectedFormat.container,
-      fileSize: selectedFormat.contentLength 
-        ? `${Math.round(parseInt(selectedFormat.contentLength) / 1024 / 1024)} MB`
-        : 'غير معروف',
-      title: info.videoDetails.title,
-      message: 'تم إنشاء رابط التحميل بنجاح'
-    });
+      const streamUrl = `/api/download/stream?videoId=${videoId}&type=${type}&quality=${quality}`;
+
+      return NextResponse.json({ 
+        url: streamUrl,
+        videoId,
+        quality: actualQuality,
+        type,
+        container: selectedFormat.container,
+        fileSize: selectedFormat.contentLength 
+          ? `${Math.round(parseInt(selectedFormat.contentLength) / 1024 / 1024)} MB`
+          : 'غير معروف',
+        title: info.videoDetails.title,
+        message: 'تم إنشاء رابط التحميل بنجاح'
+      });
 
   } catch (error) {
     console.error('Download API error:', error);

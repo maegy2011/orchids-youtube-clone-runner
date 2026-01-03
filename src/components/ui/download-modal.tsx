@@ -27,7 +27,7 @@ interface FormatsResponse {
 
 export default function DownloadModal({ videoId, videoTitle, onClose }: DownloadModalProps) {
   const [activeTab, setActiveTab] = useState<'video' | 'audio'>('video');
-  const [selectedQuality, setSelectedQuality] = useState<string>('720');
+  const [selectedQuality, setSelectedQuality] = useState<string>('720p');
   const [loading, setLoading] = useState(false);
   const [fetchingFormats, setFetchingFormats] = useState(true);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -35,6 +35,21 @@ export default function DownloadModal({ videoId, videoTitle, onClose }: Download
   const [copied, setCopied] = useState(false);
   const [formats, setFormats] = useState<FormatsResponse | null>(null);
   const [downloadInfo, setDownloadInfo] = useState<{quality: string; fileSize: string; container: string} | null>(null);
+  const [useAlternative, setUseAlternative] = useState(false);
+
+  const videoQualities = [
+    { quality: '1080p', label: '1080p HD' },
+    { quality: '720p', label: '720p HD' },
+    { quality: '480p', label: '480p' },
+    { quality: '360p', label: '360p' },
+  ];
+
+  const audioQualities = [
+    { quality: '320kbps', label: '320 kbps' },
+    { quality: '256kbps', label: '256 kbps' },
+    { quality: '192kbps', label: '192 kbps' },
+    { quality: '128kbps', label: '128 kbps' },
+  ];
 
   useEffect(() => {
     fetchFormats();
@@ -49,17 +64,16 @@ export default function DownloadModal({ videoId, videoTitle, onClose }: Download
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'فشل جلب معلومات الفيديو');
-      }
-      
-      setFormats(data);
-      
-      if (data.videoFormats?.length > 0) {
-        const defaultFormat = data.videoFormats.find((f: DownloadFormat) => f.quality?.includes('720')) || data.videoFormats[0];
-        setSelectedQuality(defaultFormat.quality);
+        setUseAlternative(true);
+      } else {
+        setFormats(data);
+        if (data.videoFormats?.length > 0) {
+          const defaultFormat = data.videoFormats.find((f: DownloadFormat) => f.quality?.includes('720')) || data.videoFormats[0];
+          setSelectedQuality(defaultFormat.quality);
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
+      setUseAlternative(true);
     } finally {
       setFetchingFormats(false);
     }
@@ -71,7 +85,9 @@ export default function DownloadModal({ videoId, videoTitle, onClose }: Download
     setError(null);
     setDownloadInfo(null);
     
-    if (formats) {
+    if (useAlternative) {
+      setSelectedQuality(tab === 'video' ? '720p' : '128kbps');
+    } else if (formats) {
       if (tab === 'video' && formats.videoFormats?.length > 0) {
         const defaultFormat = formats.videoFormats.find(f => f.quality?.includes('720')) || formats.videoFormats[0];
         setSelectedQuality(defaultFormat.quality);
@@ -115,6 +131,7 @@ export default function DownloadModal({ videoId, videoTitle, onClose }: Download
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
+      setUseAlternative(true);
     } finally {
       setLoading(false);
     }
@@ -140,10 +157,35 @@ export default function DownloadModal({ videoId, videoTitle, onClose }: Download
 
   const openDownload = () => {
     if (downloadUrl) {
-      window.parent.postMessage({ type: "OPEN_EXTERNAL_URL", data: { url: downloadUrl } }, "*");
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
+  const openExternalDownloader = (service: string) => {
+    let url = '';
+    switch (service) {
+      case 'y2mate':
+        url = `https://www.y2mate.com/youtube/${videoId}`;
+        break;
+      case 'savefrom':
+        url = `https://en.savefrom.net/1-youtube-video-downloader-4/?url=https://www.youtube.com/watch?v=${videoId}`;
+        break;
+      case 'ssyoutube':
+        url = `https://ssyoutube.com/watch?v=${videoId}`;
+        break;
+      default:
+        url = `https://www.y2mate.com/youtube/${videoId}`;
+    }
+    window.parent.postMessage({ type: "OPEN_EXTERNAL_URL", data: { url } }, "*");
+  };
+
+  const currentQualities = activeTab === 'video' ? videoQualities : audioQualities;
   const currentFormats = activeTab === 'video' ? formats?.videoFormats : formats?.audioFormats;
 
   return (
@@ -168,20 +210,6 @@ export default function DownloadModal({ videoId, videoTitle, onClose }: Download
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 size={32} className="animate-spin text-red-600 mb-3" />
               <p className="text-sm text-[#606060]">جاري جلب معلومات الفيديو...</p>
-            </div>
-          ) : error && !formats ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
-                <AlertCircle size={24} className="text-red-600" />
-              </div>
-              <p className="text-sm text-red-600 text-center mb-4">{error}</p>
-              <button
-                onClick={fetchFormats}
-                className="flex items-center gap-2 px-4 py-2 bg-[#f2f2f2] text-[#0f0f0f] rounded-lg hover:bg-[#e5e5e5] transition-colors"
-              >
-                <RefreshCw size={18} />
-                إعادة المحاولة
-              </button>
             </div>
           ) : (
             <>
@@ -210,102 +238,170 @@ export default function DownloadModal({ videoId, videoTitle, onClose }: Download
                 </button>
               </div>
 
-              <div className="space-y-2 mb-4">
-                <label className="text-sm font-medium text-[#0f0f0f]">اختر الجودة</label>
-                {currentFormats && currentFormats.length > 0 ? (
-                  <div className="grid gap-2 max-h-[200px] overflow-y-auto">
-                    {currentFormats.map((format, index) => (
-                      <button
-                        key={`${format.itag}-${index}`}
-                        onClick={() => {
-                          setSelectedQuality(format.quality);
-                          setDownloadUrl(null);
-                          setError(null);
-                        }}
-                        className={`flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
-                          selectedQuality === format.quality
-                            ? 'border-red-600 bg-red-50 text-red-600'
-                            : 'border-[#e5e5e5] hover:border-[#ccc] text-[#0f0f0f]'
-                        }`}
-                      >
-                        <span className="font-medium">{format.quality}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-[#606060]">{format.size}</span>
-                          <span className="text-xs text-[#606060] uppercase bg-[#f2f2f2] px-2 py-0.5 rounded">
-                            {format.container}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+              {useAlternative ? (
+                <div className="space-y-4">
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+                    <p className="font-medium mb-1">استخدم خدمات التحميل الخارجية</p>
+                    <p className="text-xs">سيتم فتح صفحة خارجية لتحميل الفيديو</p>
                   </div>
-                ) : (
-                  <p className="text-center text-[#606060] py-4">
-                    لا تتوفر صيغ {activeTab === 'video' ? 'للفيديو' : 'للصوت'}
-                  </p>
-                )}
-              </div>
-
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-start gap-2">
-                  <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              {downloadUrl ? (
-                <div className="space-y-3">
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-700 text-sm font-medium mb-1">تم إنشاء رابط التحميل!</p>
-                    {downloadInfo && (
-                      <p className="text-green-600 text-xs mb-2">
-                        الجودة: {downloadInfo.quality} • الحجم: {downloadInfo.fileSize} • الصيغة: {downloadInfo.container}
-                      </p>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={openDownload}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-700 transition-colors"
-                      >
-                        <ExternalLink size={18} />
-                        فتح رابط التحميل
-                      </button>
-                      <button
-                        onClick={copyToClipboard}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#f2f2f2] text-[#0f0f0f] rounded-lg font-medium text-sm hover:bg-[#e5e5e5] transition-colors"
-                      >
-                        {copied ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
-                      </button>
-                    </div>
+                  
+                  <div className="grid gap-2">
+                    <button
+                      onClick={() => openExternalDownloader('y2mate')}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+                    >
+                      <ExternalLink size={18} />
+                      تحميل عبر Y2Mate
+                    </button>
+                    <button
+                      onClick={() => openExternalDownloader('savefrom')}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      <ExternalLink size={18} />
+                      تحميل عبر SaveFrom
+                    </button>
+                    <button
+                      onClick={() => openExternalDownloader('ssyoutube')}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                    >
+                      <ExternalLink size={18} />
+                      تحميل عبر SSYouTube
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      setDownloadUrl(null);
-                      setError(null);
-                      setDownloadInfo(null);
-                    }}
-                    className="w-full py-2.5 text-[#606060] text-sm hover:text-[#0f0f0f] transition-colors"
-                  >
-                    اختيار جودة مختلفة
-                  </button>
+                  
+                  {formats && (
+                    <button
+                      onClick={() => setUseAlternative(false)}
+                      className="w-full py-2 text-[#606060] text-sm hover:text-[#0f0f0f] transition-colors"
+                    >
+                      جرب التحميل المباشر
+                    </button>
+                  )}
                 </div>
               ) : (
-                <button
-                  onClick={generateDownloadLink}
-                  disabled={loading || !selectedQuality || !currentFormats?.length}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 size={20} className="animate-spin" />
-                      جاري إنشاء الرابط...
-                    </>
-                  ) : (
-                    <>
-                      <Download size={20} />
-                      إنشاء رابط التحميل
-                    </>
+                <>
+                  <div className="space-y-2 mb-4">
+                    <label className="text-sm font-medium text-[#0f0f0f]">اختر الجودة</label>
+                    {currentFormats && currentFormats.length > 0 ? (
+                      <div className="grid gap-2 max-h-[200px] overflow-y-auto">
+                        {currentFormats.map((format, index) => (
+                          <button
+                            key={`${format.itag}-${index}`}
+                            onClick={() => {
+                              setSelectedQuality(format.quality);
+                              setDownloadUrl(null);
+                              setError(null);
+                            }}
+                            className={`flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
+                              selectedQuality === format.quality
+                                ? 'border-red-600 bg-red-50 text-red-600'
+                                : 'border-[#e5e5e5] hover:border-[#ccc] text-[#0f0f0f]'
+                            }`}
+                          >
+                            <span className="font-medium">{format.quality}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-[#606060]">{format.size}</span>
+                              <span className="text-xs text-[#606060] uppercase bg-[#f2f2f2] px-2 py-0.5 rounded">
+                                {format.container}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid gap-2">
+                        {currentQualities.map((q) => (
+                          <button
+                            key={q.quality}
+                            onClick={() => {
+                              setSelectedQuality(q.quality);
+                              setDownloadUrl(null);
+                              setError(null);
+                            }}
+                            className={`flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
+                              selectedQuality === q.quality
+                                ? 'border-red-600 bg-red-50 text-red-600'
+                                : 'border-[#e5e5e5] hover:border-[#ccc] text-[#0f0f0f]'
+                            }`}
+                          >
+                            <span className="font-medium">{q.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {error && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-start gap-2">
+                      <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                      <span>{error}</span>
+                    </div>
                   )}
-                </button>
+
+                  {downloadUrl ? (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-green-700 text-sm font-medium mb-1">تم إنشاء رابط التحميل!</p>
+                        {downloadInfo && (
+                          <p className="text-green-600 text-xs mb-2">
+                            الجودة: {downloadInfo.quality} • الحجم: {downloadInfo.fileSize} • الصيغة: {downloadInfo.container}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={openDownload}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-700 transition-colors"
+                          >
+                            <Download size={18} />
+                            تحميل
+                          </button>
+                          <button
+                            onClick={copyToClipboard}
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#f2f2f2] text-[#0f0f0f] rounded-lg font-medium text-sm hover:bg-[#e5e5e5] transition-colors"
+                          >
+                            {copied ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setDownloadUrl(null);
+                          setError(null);
+                          setDownloadInfo(null);
+                        }}
+                        className="w-full py-2.5 text-[#606060] text-sm hover:text-[#0f0f0f] transition-colors"
+                      >
+                        اختيار جودة مختلفة
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <button
+                        onClick={generateDownloadLink}
+                        disabled={loading || !selectedQuality}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 size={20} className="animate-spin" />
+                            جاري إنشاء الرابط...
+                          </>
+                        ) : (
+                          <>
+                            <Download size={20} />
+                            إنشاء رابط التحميل
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setUseAlternative(true)}
+                        className="w-full py-2.5 text-[#606060] text-sm hover:text-[#0f0f0f] transition-colors"
+                      >
+                        استخدام خدمات تحميل خارجية
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -313,7 +409,7 @@ export default function DownloadModal({ videoId, videoTitle, onClose }: Download
 
         <div className="px-4 py-3 bg-[#f9f9f9] border-t border-[#e5e5e5]">
           <p className="text-xs text-[#606060] text-center">
-            التحميل متاح للمحتوى العام فقط • الروابط صالحة لمدة 6 ساعات
+            التحميل متاح للمحتوى العام فقط
           </p>
         </div>
       </div>
