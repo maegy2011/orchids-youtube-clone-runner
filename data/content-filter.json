@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "defaultDeny": true,
+  "allowedCategories": [
+    "islamic",
+    "quran",
+    "mathematics",
+    "business",
+    "cooking",
+    "crafts",
+    "nature"
+  ],
+  "whitelist": [],
+  "blockedKeywords": [],
+  "maxResults": 50
+}

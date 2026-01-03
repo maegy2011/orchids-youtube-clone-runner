@@ -1,0 +1,210 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #0f0f0f;
+
+  --color-card: #ffffff;
+  --color-card-foreground: #0f0f0f;
+
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f0f0f;
+
+  --color-primary: #0f0f0f;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #f2f2f2;
+  --color-secondary-foreground: #0f0f0f;
+
+  --color-muted: #f2f2f2;
+  --color-muted-foreground: #606060;
+
+  --color-accent: #f2f2f2;
+  --color-accent-foreground: #0f0f0f;
+
+  --color-destructive: #ff0000;
+  --color-destructive-foreground: #ffffff;
+
+  --color-border: #e5e5e5;
+  --color-input: #cccccc;
+  --color-ring: #065fd4;
+
+  --color-chart-1: #ff0000;
+  --color-chart-2: #065fd4;
+  --color-chart-3: #606060;
+  --color-chart-4: #f2f2f2;
+  --color-chart-5: #0f0f0f;
+
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #0f0f0f;
+  --color-sidebar-primary: #0f0f0f;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: #f2f2f2;
+  --color-sidebar-accent-foreground: #0f0f0f;
+  --color-sidebar-border: #e5e5e5;
+  --color-sidebar-ring: #065fd4;
+
+  --color-brand-red: #ff0000;
+  --color-action-blue: #065fd4;
+  --color-surface-secondary: #f2f2f2;
+  --color-surface-tertiary: #e5e5e5;
+
+  --font-sans: "Noto Kufi Arabic", "Roboto", "Arial", sans-serif;
+  --font-display: "Noto Kufi Arabic", "Roboto", "Arial", sans-serif;
+
+  --radius-lg: 40px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: #e5e5e5;
+  }
+}
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #0f0f0f;
+    --card: #ffffff;
+    --card-foreground: #0f0f0f;
+    --popover: #ffffff;
+    --popover-foreground: #0f0f0f;
+    --primary: #0f0f0f;
+    --primary-foreground: #ffffff;
+    --secondary: #f2f2f2;
+    --secondary-foreground: #0f0f0f;
+    --muted: #f2f2f2;
+    --muted-foreground: #606060;
+    --accent: #f2f2f2;
+    --accent-foreground: #0f0f0f;
+    --destructive: #ff0000;
+    --destructive-foreground: #ffffff;
+    --border: #e5e5e5;
+    --input: #cccccc;
+    --ring: #065fd4;
+    --radius: 40px;
+    --sidebar-background: #ffffff;
+    --sidebar-foreground: #0f0f0f;
+    --sidebar-primary: #0f0f0f;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f2f2f2;
+    --sidebar-accent-foreground: #0f0f0f;
+    --sidebar-border: #e5e5e5;
+    --sidebar-ring: #065fd4;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .container {
+    width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .font-roboto {
+    font-family: "Roboto", sans-serif;
+  }
+
+  .sidebar-label {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+  }
+
+  .sidebar-label-active {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+  }
+
+  .signin-button {
+    font-size: 14px;
+    font-weight: 500;
+    color: #065fd4;
+  }
+
+  .meta-info {
+    font-size: 12px;
+    color: #606060;
+    font-weight: 400;
+  }
+}
+
+@layer utilities {
+  .masthead-height {
+    height: 56px;
+  }
+  
+  .sidebar-width {
+    width: 240px;
+  }
+  
+  .mini-guide-width {
+    width: 72px;
+  }
+
+  .search-max-width {
+    max-width: 640px;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

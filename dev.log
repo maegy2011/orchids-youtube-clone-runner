@@ -1,0 +1,28 @@
+   ▲ Next.js 15.3.5
+   - Local:        http://localhost:3000
+   - Network:      http://172.20.0.11:3000
+   - Environments: .env
+
+ ✓ Starting...
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+ ✓ Ready in 1149ms
+ ⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+   ▲ Next.js 15.3.5
+   - Local:        http://localhost:3000
+   - Network:      http://172.20.0.11:3000
+   - Environments: .env
+
+ ✓ Starting...
+[Error: It looks like you're trying to use TypeScript but do not have the required package(s) installed.
+
+Please install @types/react and @types/node by running:
+
+	npm install --save-dev @types/react @types/node
+
+If you are not trying to use TypeScript, please remove the tsconfig.json file from your package root (and any TypeScript files in your app and pages directories).
+]
+[?25h
