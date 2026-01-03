@@ -66,6 +66,8 @@ export default function WatchPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [playerReady, setPlayerReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const playerRef = useRef<any>(null);
+  const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteContent, setNoteContent] = useState('');
@@ -209,16 +211,92 @@ export default function WatchPage() {
     }
   }, [backgroundPlayEnabled, video]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || backgroundPlayEnabled) return;
+
+    const loadYouTubeAPI = () => {
+      if (!(window as any).YT) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+      }
+    };
+
+    const initPlayer = () => {
+      if (!iframeRef.current || playerRef.current) return;
+      
+      playerRef.current = new (window as any).YT.Player(iframeRef.current, {
+        events: {
+          onReady: (event: any) => {
+            setPlayerReady(true);
+            if (timeUpdateIntervalRef.current) {
+              clearInterval(timeUpdateIntervalRef.current);
+            }
+            timeUpdateIntervalRef.current = setInterval(() => {
+              if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+                const time = playerRef.current.getCurrentTime();
+                if (typeof time === 'number' && !isNaN(time)) {
+                  setCurrentTime(time);
+                }
+              }
+            }, 500);
+          },
+          onStateChange: (event: any) => {
+            if (event.data === 1 && playerRef.current) {
+              const time = playerRef.current.getCurrentTime();
+              if (typeof time === 'number' && !isNaN(time)) {
+                setCurrentTime(time);
+              }
+            }
+          }
+        }
+      });
+    };
+
+    loadYouTubeAPI();
+
+    (window as any).onYouTubeIframeAPIReady = () => {
+      setTimeout(initPlayer, 100);
+    };
+
+    if ((window as any).YT && (window as any).YT.Player) {
+      setTimeout(initPlayer, 100);
+    }
+
+    return () => {
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current);
+      }
+    };
+  }, [video, backgroundPlayEnabled]);
+
   const startCapture = () => {
-    const time = currentTime;
+    let time = currentTime;
+    if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+      const playerTime = playerRef.current.getCurrentTime();
+      if (typeof playerTime === 'number' && !isNaN(playerTime)) {
+        time = playerTime;
+        setCurrentTime(time);
+      }
+    }
     setCaptureStartTime(time);
     setNoteStartTime(formatTime(time));
+    setNoteEndTime(formatTime(time));
     setIsCapturing(true);
     setShowNoteForm(true);
+    setNoteContent('');
   };
 
   const stopCapture = () => {
-    const time = currentTime;
+    let time = currentTime;
+    if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+      const playerTime = playerRef.current.getCurrentTime();
+      if (typeof playerTime === 'number' && !isNaN(playerTime)) {
+        time = playerTime;
+        setCurrentTime(time);
+      }
+    }
     setNoteEndTime(formatTime(time));
     setIsCapturing(false);
   };
@@ -278,11 +356,19 @@ export default function WatchPage() {
   };
 
   const captureCurrentTime = (type: 'start' | 'end') => {
-    const time = formatTime(currentTime);
+    let time = currentTime;
+    if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+      const playerTime = playerRef.current.getCurrentTime();
+      if (typeof playerTime === 'number' && !isNaN(playerTime)) {
+        time = playerTime;
+        setCurrentTime(time);
+      }
+    }
+    const formattedTime = formatTime(time);
     if (type === 'start') {
-      setNoteStartTime(time);
+      setNoteStartTime(formattedTime);
     } else {
-      setNoteEndTime(time);
+      setNoteEndTime(formattedTime);
     }
   };
 
@@ -392,8 +478,9 @@ export default function WatchPage() {
             {!backgroundPlayEnabled ? (
               <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden mb-4">
                 <iframe
+                  id={`youtube-player-${videoId}`}
                   ref={iframeRef}
-                  src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&hl=ar&enablejsapi=1${startTime ? `&start=${startTime}` : ''}`}
+                  src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&hl=ar&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}${startTime ? `&start=${startTime}` : ''}`}
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
@@ -513,44 +600,65 @@ export default function WatchPage() {
           </div>
 
           <div className="w-full lg:w-[380px] xl:w-[400px] flex-shrink-0">
-            <div className="bg-white border border-[#e5e5e5] rounded-xl p-3 sm:p-4 lg:sticky lg:top-[72px]">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base sm:text-lg font-bold text-[#0f0f0f]">ملاحظات الفيديو</h2>
-                <div className="flex items-center gap-2">
-                  {!isCapturing ? (
+              <div className="bg-white border border-[#e5e5e5] rounded-xl p-3 sm:p-4 lg:sticky lg:top-[72px]">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base sm:text-lg font-bold text-[#0f0f0f]">ملاحظات الفيديو</h2>
+                  <div className="flex items-center gap-2">
+                    {!isCapturing ? (
+                      <button
+                        onClick={startCapture}
+                        className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-green-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors"
+                        title="بدء التقاط ملاحظة"
+                      >
+                        <Circle size={14} className="sm:w-4 sm:h-4 fill-current" />
+                        <span className="hidden xs:inline">بدء</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={stopCapture}
+                        className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-red-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-red-700 transition-colors animate-pulse"
+                        title="إيقاف التقاط ملاحظة"
+                      >
+                        <Square size={14} className="sm:w-4 sm:h-4 fill-current" />
+                        <span className="hidden xs:inline">إيقاف</span>
+                      </button>
+                    )}
                     <button
-                      onClick={startCapture}
-                      className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-green-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors"
-                      title="بدء التقاط ملاحظة"
+                      onClick={() => {
+                        setShowNoteForm(!showNoteForm);
+                        setEditingNote(null);
+                        setNoteContent('');
+                        setNoteStartTime(formatTime(currentTime));
+                        setNoteEndTime(formatTime(currentTime));
+                      }}
+                      className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-red-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-red-700 transition-colors"
                     >
-                      <Circle size={14} className="sm:w-4 sm:h-4 fill-current" />
-                      <span className="hidden xs:inline">بدء</span>
+                      <Plus size={14} className="sm:w-4 sm:h-4" />
+                      <span className="hidden xs:inline">ملاحظة</span>
                     </button>
-                  ) : (
-                    <button
-                      onClick={stopCapture}
-                      className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-red-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-red-700 transition-colors animate-pulse"
-                      title="إيقاف التقاط ملاحظة"
-                    >
-                      <Square size={14} className="sm:w-4 sm:h-4 fill-current" />
-                      <span className="hidden xs:inline">إيقاف</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setShowNoteForm(!showNoteForm);
-                      setEditingNote(null);
-                      setNoteContent('');
-                      setNoteStartTime(formatTime(currentTime));
-                      setNoteEndTime(formatTime(currentTime));
-                    }}
-                    className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-red-600 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-red-700 transition-colors"
-                  >
-                    <Plus size={14} className="sm:w-4 sm:h-4" />
-                    <span className="hidden xs:inline">ملاحظة</span>
-                  </button>
+                  </div>
                 </div>
-              </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock size={18} className="text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">الوقت الحالي:</span>
+                    </div>
+                    <span className="text-lg font-bold text-blue-600 font-mono">{formatTime(currentTime)}</span>
+                  </div>
+                  {isCapturing && (
+                    <div className="mt-2 pt-2 border-t border-blue-200">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-blue-700">جاري التقاط من: <span className="font-bold">{noteStartTime}</span></span>
+                        <span className="flex items-center gap-1 text-red-600">
+                          <Circle size={8} className="fill-current animate-pulse" />
+                          تسجيل...
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
               <div className="relative mb-4">
                 <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#606060]" />
