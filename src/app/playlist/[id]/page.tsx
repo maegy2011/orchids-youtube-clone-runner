@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Masthead from "@/components/sections/masthead";
 import SidebarGuide from "@/components/sections/sidebar-guide";
-import { Loader2, AlertCircle, ListVideo, User } from "lucide-react";
+import { Loader2, AlertCircle, ListVideo, User, ArrowRight, Play } from "lucide-react";
 
 interface PlaylistVideo {
   id: string;
@@ -29,6 +29,7 @@ interface PlaylistData {
 
 export default function PlaylistPage() {
   const params = useParams();
+  const router = useRouter();
   const playlistId = params.id as string;
   const [playlist, setPlaylist] = useState<PlaylistData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,9 +61,15 @@ export default function PlaylistPage() {
     fetchPlaylist();
   }, [playlistId]);
 
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      router.push(`/?search=${encodeURIComponent(query)}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white" dir="rtl">
-      <Masthead onSearch={() => {}} onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+      <Masthead onSearch={handleSearch} onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
       <SidebarGuide isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <main className="mr-0 lg:mr-[240px] pt-[56px] px-4 md:px-6 lg:px-10 pb-12">
@@ -74,12 +81,21 @@ export default function PlaylistPage() {
           <div className="flex flex-col items-center justify-center py-32 text-center">
             <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
             <p className="text-red-600 text-lg mb-4">{error}</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-            >
-              إعادة المحاولة
-            </button>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+              >
+                إعادة المحاولة
+              </button>
+              <Link 
+                href="/"
+                className="flex items-center gap-2 px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+              >
+                <ArrowRight size={18} />
+                الرئيسية
+              </Link>
+            </div>
           </div>
         ) : playlist ? (
           <div className="max-w-[1400px] mx-auto mt-8">
@@ -92,11 +108,14 @@ export default function PlaylistPage() {
                         src={playlist.thumbnail} 
                         alt={playlist.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = playlist.videos[0]?.thumbnail || '';
+                        }}
                       />
                     </div>
                   )}
                   
-                  <h1 className="text-xl font-bold mb-3">{playlist.title}</h1>
+                  <h1 className="text-xl font-bold mb-3">{playlist.title || 'قائمة تشغيل'}</h1>
                   
                   {playlist.channelName && (
                     <Link 
@@ -122,7 +141,7 @@ export default function PlaylistPage() {
                       href={`/watch/${playlist.videos[0].id}?list=${playlistId}`}
                       className="mt-6 w-full bg-white text-red-600 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
                     >
-                      <ListVideo size={20} />
+                      <Play size={20} />
                       تشغيل الكل
                     </Link>
                   )}
@@ -154,6 +173,9 @@ export default function PlaylistPage() {
                             src={video.thumbnail} 
                             alt={video.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`;
+                            }}
                           />
                           {video.duration && (
                             <div className="absolute bottom-1 left-1 bg-black/80 text-white text-[10px] px-1 py-0.5 rounded">

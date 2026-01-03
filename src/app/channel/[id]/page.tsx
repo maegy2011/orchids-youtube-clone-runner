@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Masthead from "@/components/sections/masthead";
 import SidebarGuide from "@/components/sections/sidebar-guide";
-import { Loader2, AlertCircle, Play, Users, Video } from "lucide-react";
+import { Loader2, AlertCircle, Play, Users, Video, ArrowRight } from "lucide-react";
 
 interface ChannelVideo {
   id: string;
@@ -29,6 +29,7 @@ interface ChannelData {
 
 export default function ChannelPage() {
   const params = useParams();
+  const router = useRouter();
   const channelId = params.id as string;
   const [channel, setChannel] = useState<ChannelData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,9 +61,15 @@ export default function ChannelPage() {
     fetchChannel();
   }, [channelId]);
 
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      router.push(`/?search=${encodeURIComponent(query)}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white" dir="rtl">
-      <Masthead onSearch={() => {}} onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+      <Masthead onSearch={handleSearch} onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
       <SidebarGuide isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <main className="mr-0 lg:mr-[240px] pt-[56px]">
@@ -74,12 +81,21 @@ export default function ChannelPage() {
           <div className="flex flex-col items-center justify-center py-32 text-center px-4">
             <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
             <p className="text-red-600 text-lg mb-4">{error}</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-            >
-              إعادة المحاولة
-            </button>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+              >
+                إعادة المحاولة
+              </button>
+              <Link 
+                href="/"
+                className="flex items-center gap-2 px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+              >
+                <ArrowRight size={18} />
+                الرئيسية
+              </Link>
+            </div>
           </div>
         ) : channel ? (
           <>
@@ -89,6 +105,9 @@ export default function ChannelPage() {
                   src={channel.banner} 
                   alt={`${channel.name} banner`}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
                 />
               </div>
             )}
@@ -97,7 +116,15 @@ export default function ChannelPage() {
               <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row items-center md:items-start gap-6">
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                   {channel.avatar ? (
-                    <img src={channel.avatar} alt={channel.name} className="w-full h-full object-cover" />
+                    <img 
+                      src={channel.avatar} 
+                      alt={channel.name} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<div class="w-full h-full bg-red-600 flex items-center justify-center text-white text-4xl font-bold">${channel.name.charAt(0)}</div>`;
+                      }}
+                    />
                   ) : (
                     <div className="w-full h-full bg-red-600 flex items-center justify-center text-white text-4xl font-bold">
                       {channel.name.charAt(0)}
@@ -150,6 +177,9 @@ export default function ChannelPage() {
                             src={video.thumbnail} 
                             alt={video.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`;
+                            }}
                           />
                           {video.duration && (
                             <div className="absolute bottom-2 left-2 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">

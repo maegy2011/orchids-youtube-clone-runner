@@ -128,7 +128,8 @@ function extractPlaylistData(data: Record<string, unknown>, playlistId: string):
     if (record.playlistSidebarSecondaryInfoRenderer) {
       const secondary = record.playlistSidebarSecondaryInfoRenderer as Record<string, unknown>;
       const ownerRenderer = secondary.videoOwner as Record<string, unknown>;
-      const ownerRuns = (ownerRenderer?.videoOwnerRenderer as Record<string, unknown>)?.title?.runs as Array<Record<string, unknown>>;
+      const videoOwnerRenderer = ownerRenderer?.videoOwnerRenderer as Record<string, unknown>;
+      const ownerRuns = (videoOwnerRenderer?.title as Record<string, unknown>)?.runs as Array<Record<string, unknown>>;
       playlistData.channelName = ownerRuns?.[0]?.text as string || '';
       
       const navEndpoint = ownerRuns?.[0]?.navigationEndpoint as Record<string, unknown>;
@@ -186,6 +187,14 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json(
+        { error: 'معرف قائمة التشغيل مطلوب' },
+        { status: 400 }
+      );
+    }
+    
     const playlistData = await fetchPlaylistData(id);
     
     return NextResponse.json(playlistData, {
@@ -196,7 +205,7 @@ export async function GET(
   } catch (error) {
     console.error('Playlist API error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch playlist' },
+      { error: error instanceof Error ? error.message : 'فشل جلب بيانات قائمة التشغيل' },
       { status: 500 }
     );
   }
