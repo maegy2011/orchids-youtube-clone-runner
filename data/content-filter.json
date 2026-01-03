@@ -1,6 +1,6 @@
 {
-  "enabled": false,
-  "defaultDeny": false,
+  "enabled": true,
+  "defaultDeny": true,
   "allowedCategories": [
     "islamic",
     "quran",
