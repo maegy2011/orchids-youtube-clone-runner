@@ -100,6 +100,7 @@ export default function WatchPage() {
       if (!userId || !video) return;
       try {
         const response = await fetch(`/api/subscriptions?userId=${userId}`);
+        if (!response.ok) throw new Error('Failed to fetch subscriptions');
         const subs = await response.json();
         const isSub = subs.some((s: any) => s.channelId === video.channelId);
         setIsSubscribed(isSub);
@@ -117,7 +118,7 @@ export default function WatchPage() {
     const recordHistory = async () => {
       if (!userId || !video) return;
       try {
-        await fetch('/api/history', {
+        const response = await fetch('/api/history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -127,6 +128,9 @@ export default function WatchPage() {
             videoThumbnail: video.thumbnail,
           }),
         });
+        if (!response.ok) {
+          console.error('Failed to record history:', response.statusText);
+        }
       } catch (err) {
         console.error('Error recording history:', err);
       }
@@ -142,18 +146,22 @@ export default function WatchPage() {
     const saveProgress = async () => {
       if (!userId || !video || !currentTime) return;
       
-      const durationMatch = video.duration?.match(/(\d+):(\d+):?(\d+)?/);
       let totalSeconds = 0;
-      if (durationMatch) {
-        if (durationMatch[3]) {
-          totalSeconds = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseInt(durationMatch[3]);
-        } else {
-          totalSeconds = parseInt(durationMatch[1]) * 60 + parseInt(durationMatch[2]);
+      if (typeof video.duration === 'number') {
+        totalSeconds = Math.floor(video.duration / 1000);
+      } else if (typeof video.duration === 'string') {
+        const durationMatch = (video.duration as string).match(/(\d+):(\d+):?(\d+)?/);
+        if (durationMatch) {
+          if (durationMatch[3]) {
+            totalSeconds = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseInt(durationMatch[3]);
+          } else {
+            totalSeconds = parseInt(durationMatch[1]) * 60 + parseInt(durationMatch[2]);
+          }
         }
       }
       
       if (totalSeconds > 0) {
-        const progress = Math.round((currentTime / totalSeconds) * 100);
+        const progress = Math.min(100, Math.round((currentTime / totalSeconds) * 100));
         try {
           await fetch('/api/history', {
             method: 'POST',
@@ -181,14 +189,15 @@ export default function WatchPage() {
     setSubscribing(true);
     try {
       if (isSubscribed) {
-        await fetch('/api/subscriptions', {
+        const response = await fetch('/api/subscriptions', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId, channelId: video.channelId }),
         });
+        if (!response.ok) throw new Error('Failed to unsubscribe');
         setIsSubscribed(false);
       } else {
-        await fetch('/api/subscriptions', {
+        const response = await fetch('/api/subscriptions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -198,10 +207,12 @@ export default function WatchPage() {
             channelThumbnail: video.channelAvatar,
           }),
         });
+        if (!response.ok) throw new Error('Failed to subscribe');
         setIsSubscribed(true);
       }
     } catch (err) {
       console.error('Error toggling subscription:', err);
+      alert('حدث خطأ أثناء تحديث الاشتراك. يرجى المحاولة لاحقاً.');
     } finally {
       setSubscribing(false);
     }
@@ -251,11 +262,12 @@ export default function WatchPage() {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== 'https://www.youtube-nocookie.com') return;
       try {
-        const data = JSON.parse(event.data);
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data.event === 'infoDelivery' && data.info?.currentTime !== undefined) {
           setCurrentTime(data.info.currentTime);
         }
-      } catch {
+      } catch (e) {
+        // Ignore non-JSON messages
       }
     };
 
@@ -266,10 +278,14 @@ export default function WatchPage() {
   useEffect(() => {
     if (iframeRef.current && playerReady) {
       const sendListenCommand = () => {
-        iframeRef.current?.contentWindow?.postMessage(
-          JSON.stringify({ event: 'listening' }),
-          'https://www.youtube-nocookie.com'
-        );
+        try {
+          iframeRef.current?.contentWindow?.postMessage(
+            JSON.stringify({ event: 'listening' }),
+            'https://www.youtube-nocookie.com'
+          );
+        } catch (e) {
+          // Ignore errors
+        }
       };
       
       const interval = setInterval(sendListenCommand, 1000);

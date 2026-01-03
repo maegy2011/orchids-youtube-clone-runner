@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useHistory } from '@/hooks/use-history';
 
-const VideoCard = ({ video, onDeny, watched, watchProgress }: { video: VideoItem; onDeny: (id: string) => void; watched: boolean; watchProgress: number }) => {
+const VideoCard = ({ video, onDeny, watched }: { video: VideoItem; onDeny: (id: string) => void; watched: boolean }) => {
   const { toggleFavorite, isFavorite, denyVideo } = useFavorites();
   const [showActions, setShowActions] = useState(false);
   const favorited = isFavorite(video.id);
@@ -47,15 +47,6 @@ const VideoCard = ({ video, onDeny, watched, watchProgress }: { video: VideoItem
           <div className="absolute bottom-2 left-2 bg-black/80 text-white text-[12px] font-medium px-1.5 py-0.5 rounded-[4px]">
             {video.duration}
           </div>
-          
-          {watchProgress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-300/50">
-              <div 
-                className="h-full bg-red-600 transition-all duration-300"
-                style={{ width: `${Math.min(watchProgress, 100)}%` }}
-              />
-            </div>
-          )}
           
             {favorited && (
               <div className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg">
@@ -149,7 +140,7 @@ const VideoGrid = ({ searchQuery }: { searchQuery?: string }) => {
   const [error, setError] = useState<string | null>(null);
   const { isDenied, isLoaded: favoritesLoaded } = useFavorites();
 
-  const { isWatched, getWatchProgress, loading: historyLoading } = useHistory();
+  const { isWatched, loading: historyLoading } = useHistory();
 
   useEffect(() => {
     const fetchVideos = async () => {
